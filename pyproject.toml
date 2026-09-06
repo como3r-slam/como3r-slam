@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools==70.0.0", "torch"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "como3r-slam"
+version = "0.1.0"
+description = "Collaborative monocular dense SLAM with learned 3D reconstruction priors"
+dependencies = [
+    "numpy==1.26.4",
+    "einops",
+    "evo",
+    "natsort",
+    "opencv-python",
+    "pyyaml",
+    "scipy",
+    # "torchcodec==0.1",  # optional, speeds up mp4 loading
+    "lietorch @ git+https://github.com/princeton-vl/lietorch.git",
+    "plyfile",
+    "scikit-image",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["como3r_slam"]
+namespaces = false

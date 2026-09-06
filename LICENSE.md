@@ -1,0 +1,13 @@
+Copyright [2026-present]
+
+CoMo3R-SLAM is licensed under the Creative Commons
+Attribution-NonCommercial-ShareAlike 4.0 license.
+
+A summary of the CC BY-NC-SA 4.0 license is located here:
+	https://creativecommons.org/licenses/by-nc-sa/4.0/
+
+The CC BY-NC-SA 4.0 license is located here:
+	https://creativecommons.org/licenses/by-nc-sa/4.0/legalcode
+
+Code in the thirdparty/ folder and the network checkpoints keep the licenses of
+their original authors.

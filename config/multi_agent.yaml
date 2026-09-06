@@ -1,0 +1,72 @@
+inherit: "config/base.yaml"
+
+# Monocular, uncalibrated: no depth sensor and no supplied intrinsics.
+# Switch to config/multi_agent_calib.yaml to feed known pinhole intrinsics in.
+use_calib: False
+single_thread: False
+
+dataset:
+  subsample: 2
+  img_downsample: 1
+  center_principle_point: True
+
+multi_agent:
+  global_opt_interval: 1            # run global opt every N inter-agent edges
+  inter_agent_min_match_frac: 0.1   # threshold for accepting inter-agent edges
+  retrieval_sync_interval: 1        # sync retrieval DB every N keyframes
+  global_opt_max_iters: 50          # GN iters for in-stream global solves
+  # Thorough cleanup pass AFTER both agents finish; chains several full GN
+  # solves until pose updates fall below `final_opt_delta_stop`.
+  final_opt_max_iters: 100          # iters per pass in the final cleanup
+  final_opt_passes: 5               # max number of cleanup passes to chain
+  final_opt_delta_stop: 0.005       # early-stop when max_delta < this (meters)
+  # After pose convergence above, alternate (depth, pose) for these many
+  # rounds so poses absorb depth changes. Only runs if local_opt.refine_depths
+  # is True. alt_pose_iters per round is small because poses are near-optimal.
+  final_alt_rounds: 100
+  final_alt_pose_iters: 50
+  poll_sleep: 0.01                  # coordinator main-loop sleep
+  # Keyframe store capacities. One slot costs ~9 MiB of GPU memory at 512x384
+  # (img 2.25 + X 2.25 + feat 3.0 + C/depth_init 1.5), so 256 slots = ~2.3 GiB.
+  # The global store is shared by every process (agents, coordinator, viz) and
+  # CANNOT grow at runtime -- size it for the total keyframe count of ALL
+  # agents, or override it with --global-kf-buffer. Raise it for long
+  # sequences or large teams, and keep an eye on the GPU budget: every agent
+  # process needs a few GiB of its own. The per-agent local store lives inside
+  # one process and grows automatically, so that one is just an initial size.
+  global_kf_buffer: 256
+  local_kf_buffer: 128
+
+# Super-primitive depth refinement along frozen MASt3R rays (poses frozen).
+# Only invoked by the multi-agent coordinator at the end of the run,
+# alternating with pose GN. Each keyframe is oversegmented from MASt3R's
+# canonical pointmap (SLIC on normals + log-depth, no SAM) and per-pixel
+# depth is reparameterized as d_p = d_init_p * exp(s_{seg(p)}). The solver
+# updates one log-scale per segment, so the Hessian is sized M (segments)
+# instead of N*P (pixels) -- smooth, fast, and segment-coherent.
+depth_refinement:
+  enabled: True
+  depth_iters: 80
+  sigma_point: 0.05
+  lambda_depth_prior: 1.0     # anchors s -> 0, i.e. d -> the pointmap prior's prediction
+  depth_min: 0.1
+  # SLIC segmentation params (see como3r_slam/depth_refinement.py).
+  seg_n_segments: 200         # SLIC target seed count per KF
+  seg_compactness: 8.0        # SLIC spatial-vs-feature trade-off
+  seg_c_thresh: 1.5           # pixels with C < seg_c_thresh are masked out
+  seg_sigma: 1.0              # SLIC pre-blur sigma
+  # Boundary smoothness across adjacent segments, LOG-SPACE residual
+  # (s_a - s_b) + (log d_init_a - log d_init_b) -> 0 at the shared boundary.
+  # Penalizes the depth RATIO at the boundary, scale-invariant and linear
+  # in s (no exp() overflow path). Set 0 to disable.
+  lambda_smooth: 1.0
+  # Levenberg-Marquardt damping on the segment Newton step:
+  #   H_damped = (H_data + H_smooth + lambda_prior) * (1 + lambda_lm)
+  # Damps Gauss-Newton overshoot at large pose alternation counts. 0 means
+  # pure GN; ~0.05 gives a noticeable safety margin without slowing
+  # convergence on well-conditioned segments.
+  lambda_lm: 0.05
+  # Per-iter step clamp on |delta s|. Hard upper bound on how much one
+  # log-scale can move per Newton step, so cumulative |s| stays bounded
+  # within num_iters * s_step_clip and exp(s) cannot blow past float32.
+  s_step_clip: 0.5

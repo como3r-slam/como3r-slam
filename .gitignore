@@ -1,0 +1,15 @@
+__pycache__/
+*.py[cod]
+*.so
+*.egg-info/
+build/
+dist/
+.eggs/
+.venv/
+.pytest_cache/
+
+# Datasets, checkpoints and run outputs
+data/
+checkpoints/
+logs/
+imgui.ini

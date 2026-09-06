@@ -1,0 +1,5 @@
+inherit: "config/multi_agent.yaml"
+
+# Same system, but with known pinhole intrinsics supplied via
+#   --calib config/intrinsics.yaml
+use_calib: True
